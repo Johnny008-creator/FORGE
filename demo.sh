@@ -1,0 +1,31 @@
+#!/bin/bash
+# Demo script showing Forge features
+
+echo "=== FORGE DEMO ==="
+echo ""
+echo "Starting forge.py with qwen2.5:0.5b"
+echo "Commands to try:"
+echo ""
+echo "1. Ask: 'list Python files in this directory'"
+echo "   → Shows tool execution with token stats"
+echo ""
+echo "2. Ask: 'create a new directory named src'"
+echo "   → Model calls mkdir(), creates directory safely"
+echo ""
+echo "3. Ask: 'create a simple hello.py script in src'"
+echo "   → Model suggests write(), you approve"
+echo ""
+echo "4. Type: /compact"
+echo "   → Summarizes current conversation to save context"
+echo ""
+echo "5. Type: /tokens"
+echo "   → Shows session token usage"
+echo ""
+echo "6. Type: /profile"
+echo "   → Shows current model's token limits & output size"
+echo ""
+echo "7. Ask: 'what files are here?'"
+echo "   → Model uses read/list tools, shows token velocity"
+echo ""
+
+python forge.py -m qwen2.5:0.5b
