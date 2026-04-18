@@ -79,6 +79,14 @@ Type these directly in the Forge prompt:
 
 ---
 
+## 📚 Project History
+Detailed release notes for previous versions can be found in the [docs/](docs/) folder:
+- [v0.5.0 — Full Agent Transition](docs/v0.5.0.md)
+- [v0.4.0 — Model Detection & UI](docs/v0.4.0.md)
+- [v0.3.0 — Robust Tool Parsing](docs/v0.3.0.md)
+
+---
+
 ## 🤝 Contributing
 Contributions are welcome! Feel free to open an issue or submit a pull request.
 
