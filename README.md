@@ -1,6 +1,6 @@
 # 🛠️ Forge — Local AI Coding Agent
 
-[![Version](https://img.shields.io/badge/version-0.5.0--dev-blue.svg)](https://github.com/Johnny008-creator/FORGE)
+[![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)](https://github.com/Johnny008-creator/FORGE)
 [![Ollama](https://img.shields.io/badge/powered%20by-Ollama-orange.svg)](https://ollama.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -9,89 +9,70 @@ Forge is a high-performance, lightweight CLI agent designed to bring **Claude Co
 
 ---
 
-## ✨ Key Features
+## ✨ New in v0.6.0: The "Claude Code" Overhaul
 
-- 🧠 **Smart Context Management**: Dynamic token tracking using Ollama API and a `/compact` command to summarize long histories.
-- 📁 **Advanced File Control**: Robust toolset (`read`, `patch`, `write`, `mkdir`, `shell`) fully optimized for Windows environments.
-- ⚡ **Lightning Fast**: Built for local execution with real-time token velocity metrics and streaming animations.
-- 🎨 **Rich Terminal UI**: Interactive animations, status bars, and modern Unicode icons (with ASCII fallbacks).
-- 🛡️ **Execution Modes**: Three safety levels (`auto`, `ask`, `manual`) to keep you in control of destructive operations.
+- 🎨 **Modern Streaming UI**: A three-part layout featuring a "Flower" spinner, real-time thinking metrics, and clean response bodies (hidden raw JSON).
+- 🧠 **Interactive Decisions (`ask_choice`)**: Forge now asks for your input when faced with multiple paths, giving you full architectural control.
+- ⚡ **Auto-Ollama Engine**: Automatically detects and launches the Ollama server in the background if it's not running.
+- 📊 **Usage Dashboard**: Track your lifetime token consumption and see how much you've saved vs. cloud APIs with the new `/usage` command.
+- 🛡️ **Improved Stability**: Robust Ctrl+C handling and refined error self-correction logic.
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Installation & Usage
 
 ### 1. Requirements
 *   **Python 3.10+**
-*   **Ollama** (running locally: `ollama serve`)
-*   **Rich & Requests**: `pip install requests rich`
+*   **Ollama** (installed and reachable)
 
-### 2. Installation
+### 2. Quick Install
 ```bash
 git clone https://github.com/Johnny008-creator/FORGE.git
 cd FORGE
+pip install -e .
 ```
 
-### 3. Usage
+### 3. Start Forge
 ```bash
-python forge.py                          # Interactive model picker
-python forge.py -m qwen2.5:0.5b          # Use specific model
-python forge.py -d /path/to/project      # Set working directory
+forge                          # Interactive model picker
+forge -m qwen2.5:7b            # Use specific model
+forge -d /path/to/project      # Set working directory
 ```
 
 ---
 
-## 🛠️ Toolset
-Forge can manipulate your environment using these built-in capabilities:
+## 🛠️ Built-in Capabilities
+Forge can manipulate your environment using these robust tools:
 
-| Tool | Description | Example |
-| :--- | :--- | :--- |
-| `read` | Read files with line numbers | `read("main.py")` |
-| `patch` | Surgical code replacement (safe) | `patch("app.py", "old", "new")` |
-| `write` | Create or overwrite entire files | `write("test.js", "console.log('hi')")` |
-| `mkdir` | Safely create directory structures | `mkdir("src/components")` |
-| `list` | Recursive file listing | `list("src/", "*.py")` |
-| `search` | Global text search (grep) | `search("TODO", ".", "*.md")` |
-| `shell` | Run any terminal command | `shell("npm test")` |
-| `delete` | Remove files or directories | `delete("temp.txt")` |
+| Tool | Description |
+| :--- | :--- |
+| `read` | Read files with line numbers for precise context. |
+| `patch` | Surgical code replacement with unified diff preview. |
+| `write` | Create or overwrite entire files with complete code. |
+| `mkdir` | Safely create directory structures (recursively). |
+| `ask_choice` | Interactive menu for picking between multiple options. |
+| `shell` | Execute any terminal command (with confirmation). |
+| `list` | Recursive file and directory listing. |
+| `search` | Global text search (grep) across the codebase. |
 
 ---
 
-## 💬 Commands
-Type these directly in the Forge prompt:
-*   `/help` — Show all available commands.
-*   `/compact` — **New!** Summarize conversation to save context space.
+## 💬 Slash Commands
+Type these directly into the Forge prompt:
+*   `/usage` — **New!** Show persistent lifetime usage statistics and savings.
+*   `/compact` — Summarize conversation to save context space.
 *   `/tokens` — Show session token statistics.
-*   `/mode` — Switch between `auto`, `ask`, and `manual` modes.
-*   `/model <name>` — Switch models on the fly.
+*   `/mode` — Switch between `auto`, `ask`, and `manual` execution modes.
+*   `/model` — Switch models on the fly.
 *   `/clear` — Reset conversation history.
 
 ---
 
-## 🗺️ Roadmap (v0.5.0+)
-
-- [x] **Full English UI/UX**
-- [x] **Windows Directory Management (`mkdir`)**
-- [x] **Dynamic Context Trimming**
-- [ ] **Persistent History**: Save sessions to `.history/` files.
-- [ ] **Git Integration**: Auto-commit changes with AI-generated messages.
-- [ ] **Multi-turn Planning**: Break down complex tasks into sub-steps.
-
----
-
 ## 📚 Project History
-Detailed release notes for previous versions can be found in the [docs/](docs/) folder:
-- [v0.5.0 — Full Agent Transition](docs/v0.5.0.md)
+Detailed release notes for every version:
+- [**v0.6.0 — The Claude Code Update**](docs/v0.6.0.md)
+- [v0.5.0 — Agentic Transition](docs/v0.5.0.md)
 - [v0.4.0 — Model Detection & UI](docs/v0.4.0.md)
-- [v0.3.0 — Robust Tool Parsing](docs/v0.3.0.md)
-
----
-
-## 🤝 Contributing
-Contributions are welcome! Feel free to open an issue or submit a pull request.
-
-## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 *Developed by Johnny008-creator*

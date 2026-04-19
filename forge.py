@@ -15,9 +15,10 @@ import time
 import threading
 import itertools
 import ast
+import random
 from pathlib import Path
 
-VERSION = "0.5.0-dev"
+VERSION = "0.6.0"
 CODENAME = "forge"
 
 # ---------------------------------------------------------------------------
@@ -30,7 +31,7 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from rich.console import Console
+    from rich.console import Console, Group
     from rich.syntax import Syntax
     from rich.panel import Panel
     from rich.prompt import Prompt
@@ -76,7 +77,7 @@ OLLAMA_CANDIDATES = [
 WORKDIR = os.path.abspath(os.getenv("WORKDIR", "."))
 MAX_TOOL_OUTPUT = int(os.getenv("MAX_TOOL_OUTPUT", "2000"))
 EXEC_MODE = "ask"  # "auto", "ask", "manual"
-SAFE_TOOLS = {"read", "list", "search"}  # Always auto, never confirm
+SAFE_TOOLS = {"read", "list", "search", "ask_choice"}  # Always auto, never confirm
 
 console = Console() if HAS_RICH else None
 
@@ -96,40 +97,38 @@ FORGE_LOGO = r"""
 
 TAGLINE = "local AI coding agent"
 
+# ---------------------------------------------------------------------------
+# UI Helpers & Visuals
+# ---------------------------------------------------------------------------
+
+ACTIVITY_WORDS = [
+    "Synthesizing thoughts", "Polishing code", "Consulting the binary gods",
+    "Rerouting power to logic", "Analyzing patterns", "Waking up neural nets",
+    "Optimizing context", "Thinking really hard", "Brewing coffee for the AI",
+    "Aligning sub-tokens", "Scanning repository", "Parsing intentions"
+]
+
+FLOWER_SPINNER = ["◐", "◓", "◑", "◒", "◌", "◍"]
+
 def animate_startup():
-    """Startup animation — logo lights up line by line."""
+    """Startup animation — logo appears smoothly."""
     if not HAS_RICH:
         print(FORGE_LOGO)
         print(f"  {TAGLINE}  v{VERSION}")
         print()
         return
 
-    try:
-        lines = FORGE_LOGO.strip("\n").split("\n")
-        colors = [
-            "#FF6B00", "#FF7A00", "#FF8C00",
-            "#FFA000", "#FFB300", "#FFC107",
-        ]
-        console.print()
-        displayed = []
-        for i, line in enumerate(lines):
-            color = colors[min(i, len(colors) - 1)]
-            displayed.append((line, color))
-            console.clear()
-            console.print()
-            for dl, dc in displayed:
-                console.print(f"  [bold {dc}]{dl}[/bold {dc}]")
-            time.sleep(0.055)
-        time.sleep(0.1)
-        console.print()
-        console.print(f"  [dim]{TAGLINE}[/dim]  [bold white]v{VERSION}[/bold white]")
-        console.print()
-        time.sleep(0.15)
-    except Exception:
-        # Fallback for Windows without Unicode
-        print(FORGE_LOGO)
-        print(f"  {TAGLINE}  v{VERSION}")
-        print()
+    logo_text = Text(FORGE_LOGO, style="bold #FFA000")
+
+    console.clear()
+    console.print()
+    with Live(Panel(logo_text, box=rich_box.ROUNDED, padding=(0, 2), border_style="#FFA000"),
+              console=console, refresh_per_second=10) as live:
+        time.sleep(0.5)
+        live.update(Panel(Group(logo_text, Text(f"\n{TAGLINE}  v{VERSION}", justify="center", style="dim")),
+                          box=rich_box.ROUNDED, padding=(0, 2), border_style="#FFA000"))
+        time.sleep(0.5)
+    console.print()
 
 
 def spinner_task(label: str, func, *args, **kwargs):
@@ -203,12 +202,12 @@ def p_info(msg):
 
 def p_tool(name, args_str, status="run"):
     """Print tool execution. status: 'run', 'ok', 'err'"""
-    icon = {"run": "⟳" if SUPPORTS_UNICODE else "~", "ok": "✓", "err": "✗"}.get(status, "?")
-    colors = {"run": "[dim]", "ok": "[green]", "err": "[bold red]"}.get(status, "")
-    color_end = {"run": "[/dim]", "ok": "[/green]", "err": "[/bold red]"}.get(status, "")
+    icon = {"run": "●" if SUPPORTS_UNICODE else "~", "ok": "✓", "err": "✗"}.get(status, "?")
+    colors = {"run": "[#FFA000]", "ok": "[green]", "err": "[bold red]"}.get(status, "")
+    color_end = {"run": "[/#FFA000]", "ok": "[/green]", "err": "[/bold red]"}.get(status, "")
 
     if HAS_RICH:
-        console.print(f"  {colors}{icon}[/{colors.replace('[', '').replace(']', '')}] [cyan]{name}[/cyan][dim]({args_str})[/dim]")
+        console.print(f"  {colors}{icon}{color_end} [cyan]{name}[/cyan][dim]({args_str})[/dim]")
     else:
         print(f"  {icon} {name}({args_str})")
 
@@ -232,6 +231,7 @@ def truncate(text: str, n: int = MAX_TOOL_OUTPUT) -> str:
 # ---------------------------------------------------------------------------
 
 def detect_ollama() -> str:
+    """Detect Ollama API. If not running, attempt to start it (Windows/Linux)."""
     for candidate in OLLAMA_CANDIDATES:
         if not candidate:
             continue
@@ -239,11 +239,34 @@ def detect_ollama() -> str:
         if not base.startswith("http"):
             base = "http://" + base
         try:
-            r = requests.get(f"{base}/api/tags", timeout=3)
+            r = requests.get(f"{base}/api/tags", timeout=1)
             if r.status_code == 200:
                 return base
         except Exception:
             pass
+
+    # Not found — try to start it
+    p_info("Ollama not responding. Attempting to start 'ollama serve'...")
+    try:
+        if sys.platform == "win32":
+            # Use CREATE_NO_WINDOW (0x08000000) for Windows
+            subprocess.Popen(["ollama", "serve"], creationflags=0x08000000,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        # Poll for 10 seconds
+        for _ in range(10):
+            time.sleep(1)
+            try:
+                r = requests.get("http://localhost:11434/api/tags", timeout=1)
+                if r.status_code == 200:
+                    return "http://localhost:11434"
+            except Exception:
+                pass
+    except Exception as e:
+        p_warn(f"Could not start Ollama: {e}")
+
     return ""
 
 
@@ -431,67 +454,43 @@ def choose_model(models: list, preselect: str = "") -> str:
 def build_system_prompt(workdir: str, tiny: bool = False) -> str:
     tools_desc = """- read(path, [start_line], [end_line]): Read file with line numbers
 - write(path, content): Write/overwrite entire file
-- patch(path, old_text, new_text): Replace first occurrence of old_text (safer than write, shows diff)
+- patch(path, old_text, new_text): Replace first occurrence of old_text (safe)
 - list([path], [pattern]): List files recursively
-- search(pattern, [path], [file_glob]): Search text in files (grep)
-- shell(cmd, [timeout]): Run shell command, returns stdout+stderr+exit code
-- delete(path): Delete file or directory
-- rename(src, dst): Rename or move file
-- mkdir(path): Safely create directory (makedirs)"""
+- search(pattern, [path], [file_glob]): Search text (grep)
+- shell(cmd, [timeout]): Run shell command
+- delete(path): Delete file/dir
+- rename(src, dst): Rename/move
+- mkdir(path): Create directory
+- ask_choice(question, options): Ask user to pick an option (Decision point)"""
 
-    # Few-shot examples for tiny models to improve tool calling reliability
-    examples = """EXAMPLES OF TOOL CALLS:
-
-User: list files in current directory
-You: {"tool":"list","args":{}}
-
-User: read setup.py
-You: {"tool":"read","args":{"path":"setup.py"}}
-
-User: search for 'import' in .py files
-You: {"tool":"search","args":{"pattern":"import","file_glob":"*.py"}}
-
-User: run python tests
-You: {"tool":"shell","args":{"cmd":"python -m pytest"}}
-
-User: create hello.py with print('hello')
-You: {"tool":"write","args":{"path":"hello.py","content":"print('hello')"}}
-
-User: create a new directory called 'src'
-You: {"tool":"mkdir","args":{"path":"src"}}"""
+    common_rules = """1. Read before edit.
+2. patch for small changes.
+3. One tool per message.
+4. If task is clear, ACT IMMEDIATELY.
+5. If unclear or multiple options exist, use ask_choice to let the user decide.
+6. Write complete code.
+7. Match style. No TODOs."""
 
     if tiny:
-        return f"""Coding assistant. Workdir: {workdir}
-
-TOOLS - Call with JSON on its own line:
+        return f"""You are Forge (tiny). Workdir: {workdir}
+TOOLS: {{"tool":"name","args":{{...}}}}
 {tools_desc}
+RULES: {common_rules}"""
 
-{examples}
-
-RULES: read before edit. patch for small changes. one tool per message."""
-
-    return f"""You are an expert local coding agent (Forge).
+    return f"""You are Forge, an expert local AI coding agent.
 Working directory: {workdir}
 
+## Core Workflow
+1. Analyze -> 2. Plan -> 3. Act (Analyze the task, state your plan, then use tools).
+
 ## Tools
-Output a JSON object on its own line to call a tool:
+Output JSON on its own line:
 {{"tool":"<name>","args":{{<params>}}}}
 
 {tools_desc}
 
-## Examples
-{examples}
-
 ## Rules
-1. Always read() before editing a file
-2. Use patch() for small edits, write() for new files or full rewrites
-3. One tool per response — wait for the result
-4. After shell(), check exit code and stderr for errors
-5. Warn user before destructive ops (delete, full rewrites)
-6. Write complete, runnable code — no TODOs or placeholders
-7. Match style of existing code
-
-Be concise."""
+{common_rules}"""
 
 
 # ---------------------------------------------------------------------------
@@ -531,11 +530,12 @@ def tool_patch(path: str, old_text: str, new_text: str) -> str:
             return f"Error: text not found in {path}\nTip: use /read {path} to verify exact content"
         updated = original.replace(old_text, new_text, 1)
         p.write_text(updated, encoding="utf-8")
-        diff = "".join(difflib.unified_diff(
+        diff_lines = list(difflib.unified_diff(
             original.splitlines(keepends=True),
             updated.splitlines(keepends=True),
             fromfile=f"a/{path}", tofile=f"b/{path}", n=3
-        )[:60])
+        ))
+        diff = "".join(diff_lines[:60])
         return f"Patched: {path}\n{diff}"
     except FileNotFoundError:
         return f"File not found: {path}"
@@ -627,16 +627,54 @@ def tool_mkdir(path: str) -> str:
         return f"Mkdir error: {e}"
 
 
+def tool_ask_choice(question: str, options: list) -> str:
+    """Model asks user to pick from multiple options."""
+    if not HAS_RICH:
+        print(f"\n  [?] {question}")
+        for i, opt in enumerate(options, 1):
+            print(f"  {i}. {opt}")
+        ans = input(f"  Select [1-{len(options)}]: ").strip()
+        try:
+            idx = int(ans) - 1
+            return f"User selected option: {options[idx]}"
+        except:
+            return f"User provided custom response: {ans}"
+
+    console.print(f"\n  [yellow]?[/yellow] [bold]{question}[/bold]")
+    for i, opt in enumerate(options, 1):
+        console.print(f"  [cyan]{i}.[/cyan]    {opt}")
+    console.print(f"  [cyan]{len(options)+1}.[/cyan]    Enter custom instruction...")
+
+    try:
+        raw = Prompt.ask(
+            f"  [dim]Select option [1-{len(options)+1}][/dim]",
+            default="1"
+        ).strip()
+    except (KeyboardInterrupt, EOFError):
+        return "[User cancelled the selection]"
+
+    if raw.isdigit():
+        idx = int(raw) - 1
+        if 0 <= idx < len(options):
+            return f"User selected option: {options[idx]}"
+        elif idx == len(options):
+            custom = input("  Custom instruction: ").strip()
+            return f"User chose a custom path: {custom}"
+    
+    return f"User provided raw response: {raw}"
+
+
 TOOLS = {
-    "read":   (tool_read,   "Read file with line numbers",    "path [start_line] [end_line]"),
-    "write":  (tool_write,  "Write/overwrite file",           "path content"),
-    "patch":  (tool_patch,  "Replace text in file (safe)",    "path old_text new_text"),
-    "list":   (tool_list,   "List files recursively",         "[path] [pattern]"),
-    "search": (tool_search, "Grep text in files",             "pattern [path] [file_glob]"),
-    "shell":  (tool_shell,  "Run shell command",              "cmd [timeout]"),
-    "delete": (tool_delete, "Delete file or directory",       "path"),
-    "rename": (tool_rename, "Rename or move file",            "src dst"),
-    "mkdir":  (tool_mkdir,  "Safely create directory",        "path"),
+    "read":       (tool_read,       "Read file with line numbers",    "path [start_line] [end_line]"),
+    "write":      (tool_write,      "Write/overwrite file",           "path content"),
+    "patch":      (tool_patch,      "Replace text in file (safe)",    "path old_text new_text"),
+    "list":       (tool_list,       "List files recursively",         "[path] [pattern]"),
+    "search":     (tool_search,     "Grep text in files",             "pattern [path] [file_glob]"),
+    "shell":      (tool_shell,      "Run shell command",              "cmd [timeout]"),
+    "delete":     (tool_delete,     "Delete file or directory",       "path"),
+    "rename":     (tool_rename,     "Rename or move file",            "src dst"),
+    "mkdir":      (tool_mkdir,      "Safely create directory",        "path"),
+    "ask_choice": (tool_ask_choice, "Ask user to pick an option",     "question options"),
 }
 
 
@@ -676,7 +714,7 @@ def llm_generate(messages: list, model: str, base_url: str, profile: dict) -> st
 
 
 def stream_chat(messages: list, model: str, base_url: str, profile: dict) -> tuple:
-    """Stream chat from Ollama. Returns (response_text, stats_dict)."""
+    """Stream chat from Ollama with Flower animation, activity words and precise stats."""
     payload = {
         "model": model,
         "messages": messages,
@@ -689,88 +727,111 @@ def stream_chat(messages: list, model: str, base_url: str, profile: dict) -> tup
     try:
         resp = requests.post(f"{base_url}/api/chat", json=payload, stream=True, timeout=180)
         resp.raise_for_status()
-    except requests.exceptions.ConnectionError:
-        p_err(f"Cannot connect to Ollama at {base_url}")
-        return "", {"prompt_tokens": 0, "completion_tokens": 0, "tokens_per_sec": 0, "elapsed": 0}
-    except requests.exceptions.HTTPError:
-        p_err(f"HTTP {resp.status_code} — model '{model}' may not exist")
+    except Exception as e:
+        p_err(f"Connection error: {e}")
         return "", {"prompt_tokens": 0, "completion_tokens": 0, "tokens_per_sec": 0, "elapsed": 0}
 
-    full = []
+    full_text = []
     prompt_tokens = 0
     completion_tokens = 0
     start_time = time.time()
-    token_count = 0
-    last_status_time = start_time
 
-    # Show "thinking" indicator before response starts
-    thinking_shown = False
-    if HAS_RICH:
-        try:
-            console.print(f"\n  [bold #FFA000]>>[/bold #FFA000] [dim]{model}[/dim]")
-            thinking_chars = "⣾⣽⣻⣷⣯⣟⡿⢿" if SUPPORTS_UNICODE else "-\\|/"
-            thinking_shown = True
-        except:
-            console.print(f"\n  [bold]>>[/bold] [dim]{model}[/dim]")
-        console.print("  ", end="")
-    else:
+    if not HAS_RICH:
         print(f"\n  [{model}]: ", end="", flush=True)
+        for line in resp.iter_lines():
+            if not line: continue
+            try:
+                chunk = json.loads(line)
+                token = chunk.get("message", {}).get("content", "")
+                if token:
+                    print(token, end="", flush=True)
+                    full_text.append(token)
+                if chunk.get("done"):
+                    prompt_tokens = chunk.get("prompt_eval_count", 0)
+                    completion_tokens = chunk.get("eval_count", 0)
+                    break
+            except: pass
+        print()
+        elapsed = time.time() - start_time
+        tps = completion_tokens / elapsed if elapsed > 0 else 0
+        return "".join(full_text), {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens, "tokens_per_sec": tps, "elapsed": elapsed}
 
-    for line in resp.iter_lines():
-        if not line:
-            continue
+    # -- RICH CLAUDE-CODE STYLE UI --
+    response_display = Text("")
+    activity_word = random.choice(ACTIVITY_WORDS)
+    spinner_idx = 0
+
+    def make_layout(status_text: str, footer_text: str, is_done=False) -> Group:
+        # Header: Icon + Activity/Time
+        color = "green" if is_done else "#FFA000"
+        header = Text.assemble(
+            (f"  {FLOWER_SPINNER[spinner_idx] if not is_done else '✓'} ", color),
+            (f"{model} ", "cyan"),
+            (f"| {status_text} ", "dim")
+        )
+
+        # Tool call hiding logic
+        cleaned_response = Text("")
+        raw_lines = response_display.plain.splitlines()
+        for i, line in enumerate(raw_lines):
+            if '"tool":' in line or '"args":' in line:
+                continue
+            cleaned_response.append(line + ("\n" if i < len(raw_lines)-1 else ""))
+
+        # Footer: Tokens & speed
+        footer = Text(f"  {footer_text}", style="dim italic") if footer_text else Text("")
+
+        return Group(header, cleaned_response, footer)
+
+    # Render loop using Live
+    with Live(make_layout(activity_word, ""), console=console, refresh_per_second=12) as live:
         try:
-            chunk = json.loads(line)
-            token = chunk.get("message", {}).get("content", "")
-            if token:
-                print(token, end="", flush=True)
-                full.append(token)
-                completion_tokens += len(token.split())
-                token_count += 1
+            for line in resp.iter_lines():
+                if not line: continue
+                try:
+                    chunk = json.loads(line)
+                    token = chunk.get("message", {}).get("content", "")
+                    if token:
+                        response_display.append(token)
+                        full_text.append(token)
 
-                # Live token velocity every 0.5s
-                now = time.time()
-                if now - last_status_time > 0.5 and HAS_RICH:
-                    elapsed = now - start_time
-                    vel = completion_tokens / elapsed if elapsed > 0 else 0
-                    try:
-                        console.print(f"\r  [dim]... {completion_tokens} tok @ {vel:.1f} tok/s[/dim]", end="")
-                    except:
-                        pass
-                    last_status_time = now
+                        # Heuristic for live updates
+                        completion_tokens += 1
 
-            if chunk.get("done"):
-                prompt_tokens = chunk.get("prompt_eval_count", 0)
-                final_completion = chunk.get("eval_count", 0)
-                if final_completion > 0:
-                    completion_tokens = final_completion
-                break
-        except json.JSONDecodeError:
-            pass
+                        now = time.time()
+                        elapsed = now - start_time
+                        tps = completion_tokens / elapsed if elapsed > 0 else 0
+
+                        # Update spinner and activity word
+                        spinner_idx = (spinner_idx + 1) % len(FLOWER_SPINNER)
+                        if spinner_idx == 0 and random.random() < 0.1:
+                            activity_word = random.choice(ACTIVITY_WORDS)
+
+                        live.update(make_layout(f"{elapsed:.1f}s", f"{completion_tokens} ↓ · {tps:.1f} t/s"))
+
+                    if chunk.get("done"):
+                        prompt_tokens = chunk.get("prompt_eval_count", 0)
+                        completion_tokens = chunk.get("eval_count", 0)
+                        break
+                except json.JSONDecodeError: pass
+        except (KeyboardInterrupt, Exception) as e:
+            if isinstance(e, KeyboardInterrupt):
+                p_warn("Stream interrupted by user.")
+            else:
+                p_err(f"Stream error: {e}")
 
     elapsed = time.time() - start_time
     tokens_per_sec = completion_tokens / elapsed if elapsed > 0 else 0
 
-    print()
+    # Final cleanup (replace live status with precise final summary)
+    console.print(f"  [dim]{prompt_tokens} ↑ · {completion_tokens} ↓ · {tokens_per_sec:.1f} t/s[/dim]\n")
 
-    # Show final token stats
-    if HAS_RICH:
-        try:
-            console.print(f"  [dim]─────────────────────────────[/dim]")
-            console.print(f"  [dim]in: {prompt_tokens:,} tok  out: {completion_tokens:,} tok  {tokens_per_sec:.1f} tok/s  {elapsed:.2f}s[/dim]")
-        except:
-            console.print(f"  in: {prompt_tokens:,}  out: {completion_tokens:,}  {tokens_per_sec:.1f} tok/s  {elapsed:.2f}s")
-    else:
-        print(f"  in: {prompt_tokens:,}  out: {completion_tokens:,}  {tokens_per_sec:.1f} tok/s  {elapsed:.2f}s")
-
-    stats = {
+    return "".join(full_text), {
         "prompt_tokens": prompt_tokens,
         "completion_tokens": completion_tokens,
         "tokens_per_sec": tokens_per_sec,
         "elapsed": elapsed
     }
-
-    return "".join(full), stats
 
 
 def extract_tool_calls(text: str) -> list:
@@ -894,6 +955,26 @@ class ContextWindow:
     def add_tokens(self, prompt: int, completion: int):
         self.total_prompt_tokens += prompt
         self.total_completion_tokens += completion
+        # Save to persistent storage
+        try:
+            stats_dir = os.path.join(os.path.expanduser("~"), "Documents", "FORGE_agent_memory")
+            os.makedirs(stats_dir, exist_ok=True)
+            stats_path = os.path.join(stats_dir, "usage_stats.json")
+            
+            data = {"total_in": 0, "total_out": 0, "sessions": 0}
+            if os.path.exists(stats_path):
+                try:
+                    with open(stats_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except: pass
+            
+            data["total_in"] += prompt
+            data["total_out"] += completion
+            # We don't increment sessions here, only once per startup if desired
+            
+            with open(stats_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except: pass
 
     def clear(self):
         self.messages = []
@@ -929,7 +1010,7 @@ def should_confirm(tool_name: str) -> bool:
 
 
 def ask_confirm(tool_name: str, args: dict) -> bool:
-    """Ask user to confirm tool execution."""
+    """Ask user to confirm tool execution. Defaults to Yes (Enter)."""
     tool_func, _, _ = TOOLS.get(tool_name, (None, None, None))
     if not tool_func:
         return False
@@ -943,20 +1024,23 @@ def ask_confirm(tool_name: str, args: dict) -> bool:
 
     if not HAS_RICH:
         print(f"\n  → {display}")
-        ans = input(f"  Execute [y/N]: ").strip().lower()
-        return ans == "y"
+        ans = input(f"  Execute [Y/n]: ").strip().lower()
+        return ans in ("", "y", "yes")
 
     try:
         print()
         ans = Prompt.ask(
-            f"  [yellow]?[/yellow] {tool_name.upper()}: [cyan]{display[len(tool_name)+1:]}[/cyan]",
-            default="n"
+            f"  [yellow]?[/yellow] {tool_name.upper()}: [cyan]{display[len(tool_name)+1:]}[/cyan] [dim][Y/n][/dim]",
+            default="y"
         ).strip().lower()
-        return ans == "y"
+        return ans in ("", "y", "yes")
+    except (KeyboardInterrupt, EOFError):
+        return False
     except:
         print(f"  → {display}")
-        ans = input(f"  Execute [y/N]: ").strip().lower()
-        return ans == "y"
+        ans = input(f"  Execute [Y/n]: ").strip().lower()
+        return ans in ("", "y", "yes")
+
 
 def agentic_loop(user_input: str, ctx: ContextWindow,
                  model: str, base_url: str, profile: dict):
@@ -977,7 +1061,8 @@ def agentic_loop(user_input: str, ctx: ContextWindow,
         ctx.add("assistant", response)
         tool_results = []
 
-        console.print() if HAS_RICH else None
+        console.print(f"\n  [bold #FFA000]●[/bold #FFA000] [dim]Executing plan...[/dim]") if HAS_RICH else None
+
         for call in calls:
             name = call["tool"]
             args = call.get("args", {})
@@ -987,19 +1072,25 @@ def agentic_loop(user_input: str, ctx: ContextWindow,
             p_tool(name, args_preview, status="run")
 
             # Check if confirmation needed
+            confirmed = True
             if should_confirm(name):
-                if not ask_confirm(name, args):
-                    result = f"[{name} execution cancelled by user]"
-                    p_tool(name, args_preview, status="err")
-                else:
-                    result = run_tool(name, args)
-                    p_tool(name, args_preview, status="ok")
+                confirmed = ask_confirm(name, args)
+            
+            if not confirmed:
+                result = f"[{name} execution cancelled by user]"
+                p_tool(name, args_preview, status="err")
             else:
                 result = run_tool(name, args)
                 p_tool(name, args_preview, status="ok")
 
-            for line in truncate(result, 300).splitlines()[:6]:
-                p_tool_result(line)
+            # Compact result display
+            res_str = str(result).strip()
+            if len(res_str.splitlines()) > 5:
+                for line in res_str.splitlines()[:5]:
+                    p_tool_result(line)
+                p_tool_result(f"... and {len(res_str.splitlines())-5} more lines")
+            else:
+                p_tool_result(truncate(res_str, 100))
 
             tool_results.append(f"[{name} result]\n{result}")
 
@@ -1024,6 +1115,7 @@ HELP = """
   /clear             Clear conversation history
   /ctx               Show context stats (messages)
   /tokens            Show session token totals
+  /usage             Show persistent usage dashboard
   /profile           Show current model profile
   /mode              Show current execution mode
   /auto              Switch to auto mode (execute all without asking)
@@ -1038,18 +1130,24 @@ HELP = """
 """
 
 def show_status_bar(model: str, profile: dict, workdir: str, ctx: ContextWindow):
-    """Displays status bar after each interaction."""
+    """Displays permanent dashboard-style status bar."""
     global EXEC_MODE
     if not HAS_RICH:
         return
+
+    # Precise tokens from context
     stats = ctx.stats()
-    console.print(
-        f"  [dim]model:[/dim][cyan]{model}[/cyan]  "
-        f"[dim]dir:[/dim][yellow]{workdir}[/yellow]  "
-        f"[dim]mode:[/dim][green]{EXEC_MODE}[/green]  "
-        f"[dim]{stats}[/dim]",
-        highlight=False
-    )
+
+    # Dashboard elements
+    dir_text = Text.assemble((" dir ", "bg:#333333 white"), (f" {workdir} ", "bg:#444444 yellow"))
+    mode_text = Text.assemble((" mode ", "bg:#333333 white"), (f" {EXEC_MODE} ", f"bg:#444444 {'green' if EXEC_MODE=='auto' else 'cyan'}"))
+    model_text = Text.assemble((" model ", "bg:#333333 white"), (f" {model} ", "bg:#444444 blue"))
+    token_text = Text(f" {stats}", style="dim")
+
+    console.print(Group(
+        dir_text + Text(" ") + mode_text + Text(" ") + model_text + Text(" ") + token_text,
+        Text("─" * console.width, style="dim")
+    ))
 
 
 def handle_slash(cmd: str, ctx: ContextWindow, state: dict) -> dict:
@@ -1140,6 +1238,77 @@ def handle_slash(cmd: str, ctx: ContextWindow, state: dict) -> dict:
 
     elif name == "/tokens":
         p_info(ctx.token_stats())
+
+    elif name == "/usage":
+        # Load persistent stats
+        stats_dir = os.path.join(os.path.expanduser("~"), "Documents", "FORGE_agent_memory")
+        stats_path = os.path.join(stats_dir, "usage_stats.json")
+        raw_data = {"total_in": 0, "total_out": 0, "sessions": 0}
+        
+        if os.path.exists(stats_path):
+            try:
+                with open(stats_path, "r", encoding="utf-8") as f:
+                    content = json.load(f)
+                    if isinstance(content, list):
+                        # Support legacy list format with multiple key variants
+                        total_in = 0
+                        total_out = 0
+                        for entry in content:
+                            total_in += entry.get("prompt_tokens", entry.get("p", 0))
+                            total_out += entry.get("completion_tokens", entry.get("c", 0))
+                        raw_data = {"total_in": total_in, "total_out": total_out, "sessions": len(content)}
+                    elif isinstance(content, dict):
+                        raw_data = content
+            except: pass
+        
+        total_in = raw_data.get("total_in", 0)
+        total_out = raw_data.get("total_out", 0)
+        total = total_in + total_out
+        sessions = raw_data.get("sessions", 0)
+        saved_usd = (total / 1_000_000) * 0.15 # Approx savings vs cloud
+
+        if HAS_RICH:
+            # Dashboard UI
+            console.print(Panel(
+                Text.assemble(
+                    (" FORGE ", "bold white bg:#FFA000"),
+                    (" USAGE DASHBOARD ", "bold #FFA000"),
+                    (f"| {sessions} sessions", "dim")
+                ),
+                border_style="#FFA000", padding=(0, 1)
+            ))
+
+            table = Table(box=rich_box.SIMPLE, show_header=True, header_style="bold cyan", expand=True)
+            table.add_column("Metric", style="white")
+            table.add_column("Tokens", justify="right", style="cyan")
+            table.add_column("Ratio", justify="right", style="dim")
+
+            p_percent = (total_in / total * 100) if total > 0 else 0
+            c_percent = (total_out / total * 100) if total > 0 else 0
+
+            table.add_row("Input (Prompt)", f"{total_in:,}", f"{p_percent:.1f}%")
+            table.add_row("Output (Completion)", f"{total_out:,}", f"{c_percent:.1f}%")
+            table.add_section()
+            table.add_row("[bold white]Total Tokens[/bold white]", f"[bold white]{total:,}[/bold white]", "100%")
+            console.print(table)
+
+            if total > 0:
+                p_bar = "━" * int(p_percent / 4)
+                c_bar = "━" * int(c_percent / 4)
+                console.print(f"  [cyan]{p_bar}[/cyan][magenta]{c_bar}[/magenta]")
+                console.print(f"  [dim]Input vs Output ratio[/dim]\n")
+
+            console.print(Panel(
+                f"[bold green]Estimated Savings: ${saved_usd:.4f} USD[/bold green]\n"
+                f"[dim]Based on local execution vs cloud API rates[/dim]",
+                border_style="green", title="Wallet", title_align="left"
+            ))
+        else:
+            print(f"--- USAGE DASHBOARD ({sessions} sessions) ---")
+            print(f"  Input:  {total_in:,}")
+            print(f"  Output: {total_out:,}")
+            print(f"  Total:  {total:,}")
+            print(f"  Estimated Savings: ${saved_usd:.4f} USD")
 
     elif name == "/mode":
         p_info(f"Execution mode: {EXEC_MODE}  (auto | ask | manual)")
@@ -1263,6 +1432,20 @@ def main():
     # -- Connection to Ollama -------------------------------------------
     base_url = spinner_task("connecting to ollama", detect_ollama)
 
+    # -- Increment session count ----------------------------------------
+    try:
+        stats_dir = os.path.join(os.path.expanduser("~"), "Documents", "FORGE_agent_memory")
+        os.makedirs(stats_dir, exist_ok=True)
+        stats_path = os.path.join(stats_dir, "usage_stats.json")
+        data = {"total_in": 0, "total_out": 0, "sessions": 0}
+        if os.path.exists(stats_path):
+            with open(stats_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        data["sessions"] = data.get("sessions", 0) + 1
+        with open(stats_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except: pass
+
     if not base_url:
         p_err("Ollama not found on any address.")
         p_err("Start it with: ollama serve")
@@ -1298,15 +1481,23 @@ def main():
     while True:
         try:
             if HAS_RICH:
-                user_input = Prompt.ask("[bold #FFA000]forge[/bold #FFA000]").strip()
+                # Stylish prompt like Claude Code
+                prompt_label = Text.assemble(
+                    (" forge ", "bold white bg:#FFA000"),
+                    (" ", "default"),
+                    (f"{os.path.basename(WORKDIR)}", "blue italic"),
+                    (" > ", "bold #FFA000")
+                )
+                user_input = Prompt.ask(prompt_label).strip()
             else:
-                user_input = input("forge> ").strip()
+                user_input = input(f"forge:{os.path.basename(WORKDIR)}> ").strip()
         except (KeyboardInterrupt, EOFError):
             if HAS_RICH:
                 console.print("\n  [dim]bye.[/dim]\n")
             else:
-                print("\nbye.")
+                print("\n  bye.\n")
             break
+
 
         if not user_input:
             continue

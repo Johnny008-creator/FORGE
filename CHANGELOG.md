@@ -2,6 +2,24 @@
 
 All notable changes to Forge will be documented in this file.
 
+## [0.6.0] — 2026-04-19
+### Added
+- **Claude Code Style UI**: Complete overhaul of the streaming interface with a 3-part layout (Header, Body, Footer).
+- **Interactive Decision Making (`ask_choice`)**: New tool allowing the model to present multiple options to the user via a stylish menu.
+- **Auto-Ollama Startup**: Forge now automatically detects if the Ollama server is running and attempts to start it in the background if needed.
+- **Persistent Usage Tracking**: Total token consumption and session counts are now saved to `usage_stats.json` in the user's Documents.
+- **Usage Dashboard (`/usage`)**: New command to display a visual summary of lifetime token usage, ratios, and estimated cost savings.
+- **Enhanced Reliability for Tiny Models**: Optimized system prompts (Analyze -> Plan -> Act) and "Choice-Loop" prevention for models under 3B parameters.
+
+### Fixed
+- Improved **Ctrl+C handling**: Interrupting a stream or an interactive menu now returns safely to the prompt instead of crashing the application.
+- Fixed **`patch` tool bug** where diff generation would fail on certain Python versions due to generator subscripting.
+- Corrected **Markdown JSON extraction** to better handle tool calls nested inside code blocks.
+
+### Changed
+- Refactored `agentic_loop` to provide clearer feedback during plan execution.
+- Updated main prompt with current directory context and a more modern look.
+
 ## [0.5.0-dev] — 2026-04-18
 ### Added
 - **English-Only Transition**: Entire codebase, comments, and CLI translated to English for a global professional standard.
