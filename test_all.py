@@ -4,7 +4,7 @@ import forge
 import json
 
 print("=" * 60)
-print("FORGE v0.4.0 TEST SUITE")
+print("FORGE v0.6.0+ UPGRADE TEST SUITE")
 print("=" * 60)
 
 # Test 1: Execution modes
@@ -44,30 +44,30 @@ print(f"  Input: {md_text[:50]}...")
 print(f"  Parsed: {calls}")
 assert calls[0]['tool'] == 'list'
 
-# Test 5: Context window with tokens
-print("\n[5] CONTEXT WINDOW & TOKENS")
-ctx = forge.ContextWindow("test system", max_msgs=5)
-ctx.add("user", "hello")
-ctx.add("assistant", "hi there")
-ctx.add_tokens(100, 50)
-print(f"  Messages: {len(ctx.messages)}")
-print(f"  Tokens: {ctx.token_stats()}")
-assert ctx.total_prompt_tokens == 100
-assert ctx.total_completion_tokens == 50
+# Test 5: Sloppy JSON Repair (Tiny Model specialty)
+print("\n[5] SLOPPY JSON REPAIR")
+sloppy_json = "{'tool': 'mkdir', 'args': {'path': 'src'}}"
+calls = forge.extract_tool_calls(sloppy_json)
+print(f"  Input: {sloppy_json}")
+print(f"  Parsed: {calls}")
+assert calls[0]['tool'] == 'mkdir'
+assert calls[0]['args']['path'] == 'src'
 
-# Test 6: Model profiles
+# Test 6: Model profiles (Increased context)
 print("\n[6] MODEL PROFILES")
 models = ["qwen2.5:0.5b", "qwen2.5:3b", "qwen2.5:7b", "mistral:latest"]
 for model in models:
     prof = forge.model_profile(model)
     print(f"  {model:20} -> {prof['label']:8} (max_context: {prof['max_context']})")
+assert forge.model_profile("qwen2.5:0.5b")["max_context"] == 6
 
-# Test 7: Few-shot prompt
+# Test 7: Few-shot prompt (Tiny Model)
 print("\n[7] SYSTEM PROMPT (TINY MODEL)")
 prompt = forge.build_system_prompt("/workspace", tiny=True)
 print(f"  Contains 'EXAMPLES': {'EXAMPLES' in prompt}")
-print(f"  Contains 'read': {'read' in prompt}")
+print(f"  Contains 'mkdir': {'mkdir' in prompt}")
 print(f"  Length: {len(prompt)} chars")
+assert "EXAMPLES" in prompt
 
 print("\n" + "=" * 60)
 print("ALL TESTS PASSED!")

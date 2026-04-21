@@ -1,0 +1,14 @@
+# Forge Default Configuration
+
+[general]
+workdir = "."
+exec_mode = "ask"
+debug = false
+
+[ollama]
+base_url = "http://localhost:11434"
+timeout = 120
+
+[ui]
+theme = "default"
+max_tool_output = 2000

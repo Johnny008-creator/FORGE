@@ -1,6 +1,6 @@
 # 🛠️ Forge — Local AI Coding Agent
 
-[![Version](https://img.shields.io/badge/version-0.6.0-blue.svg)](https://github.com/Johnny008-creator/FORGE)
+[![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](https://github.com/Johnny008-creator/FORGE)
 [![Ollama](https://img.shields.io/badge/powered%20by-Ollama-orange.svg)](https://ollama.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)]()
@@ -9,13 +9,14 @@ Forge is a high-performance, lightweight CLI agent designed to bring **Claude Co
 
 ---
 
-## ✨ New in v0.6.0: The "Claude Code" Overhaul
+## ✨ New in v0.7.0: The Modular Framework Update
 
-- 🎨 **Modern Streaming UI**: A three-part layout featuring a "Flower" spinner, real-time thinking metrics, and clean response bodies (hidden raw JSON).
-- 🧠 **Interactive Decisions (`ask_choice`)**: Forge now asks for your input when faced with multiple paths, giving you full architectural control.
-- ⚡ **Auto-Ollama Engine**: Automatically detects and launches the Ollama server in the background if it's not running.
-- 📊 **Usage Dashboard**: Track your lifetime token consumption and see how much you've saved vs. cloud APIs with the new `/usage` command.
-- 🛡️ **Improved Stability**: Robust Ctrl+C handling and refined error self-correction logic.
+- 🏗️ **Scalable Architecture**: Entire project refactored into modular components (`core`, `providers`, `tools`, `ui`, `utils`, `tiers`).
+- 📡 **Provider Abstraction**: Decoupled AI backend (Ollama) enabling future multi-provider support (OpenAI, Anthropic).
+- 🧩 **Independent Tiers**: Each model group has dedicated logic, system prompts, and context limits for maximum stability.
+- 🛡️ **Resilient Core**: Built-in "Sloppy JSON" repair and strict argument filtering to handle 0.5B model hallucinations.
+- 🪝 **Hook API**: New plugin system for extending agent behavior without modifying the core codebase.
+- 🧪 **Validation Suite**: Automated environment checks and comprehensive test coverage in `tests/`.
 
 ---
 

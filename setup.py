@@ -2,7 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name="forge-agent",
-    version="0.6.0",
+    version="0.7.0",
+
     author="Johnny008-creator",
     description="Local AI coding agent powered by Ollama",
     long_description=open("README.md", encoding="utf-8").read(),
