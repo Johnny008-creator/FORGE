@@ -1,33 +1,33 @@
 # 🤖 Forge AI Agent Protocol (v1.0)
 
-Toto jsou závazná pravidla pro vývoj a úpravy projektu Forge. Každý AI agent se jimi musí řídit.
+These are mandatory rules for the development and modification of the Forge project. Every AI agent must follow them.
 
-## 🏗️ Architektonické zásady
-- **Single Responsibility Principle (SRP):** Každý soubor má jednu jasnou zodpovědnost.
-- **Limit délky:** Žádný soubor nesmí překročit **200 řádků**.
-- **Cirkulární importy:** Jsou přísně zakázány. Závislosti musí proudit směrem dolů.
-- **Surgical Edits:** Nepoužívej hromadné přepisy. Používej `replace` pro cílené změny.
+## 🏗️ Architectural Principles
+- **Single Responsibility Principle (SRP):** Each file has one clear responsibility.
+- **Length Limit:** No file may exceed **200 lines**.
+- **Circular Imports:** Strictly forbidden. Dependencies must flow downwards.
+- **Surgical Edits:** Do not use bulk rewrites. Use `replace` for targeted changes.
 
-## 🛠️ Jak přidat nový Nástroj (Tool)
-1. Vytvoř nový soubor v `tools/` (např. `tools/my_tool.py`).
-2. Implementuj funkci nástroje.
-3. Zaregistruj nástroj v `tools/registry.py` (importuj ho a přidej do `TOOLS` dict).
-4. **POZOR:** Registrace probíhá VÝHRADNĚ v `tools/registry.py`.
+## 🛠️ How to Add a New Tool
+1. Create a new file in `tools/` (e.g., `tools/my_tool.py`).
+2. Implement the tool function.
+3. Register the tool in `tools/registry.py` (import it and add it to the `TOOLS` dict).
+4. **IMPORTANT:** Registration takes place EXCLUSIVELY in `tools/registry.py`.
 
-## 📡 Jak přidat nového Providera (Model Provider)
-1. Vytvoř nový soubor v `providers/` (např. `providers/openai.py`).
-2. Implementuj třídu dědící z `BaseProvider`.
-3. Zaregistruj providera v `providers/registry.py`.
+## 📡 How to Add a New Provider
+1. Create a new file in `providers/` (e.g., `providers/openai.py`).
+2. Implement a class inheriting from `BaseProvider`.
+3. Register the provider in `providers/registry.py`.
 
-## 📁 Adresářová struktura
-- `core/`: Jádro agenta a loopu.
-- `providers/`: Abstrakce pro různé AI backendy.
-- `tools/`: Modulární nástroje (vždy jeden soubor = jedna kategorie).
-- `tiers/`: Specifické konfigurace pro různé velikosti modelů.
-- `ui/`: Vše spojené s Rich UI a interakcí s uživatelem.
-- `utils/`: Pomocné funkce a statistiky.
-- `config/`: Nastavení a validace.
-- `plugins/`: Hook systém pro rozšíření.
+## 📁 Directory Structure
+- `core/`: Agent core and loop.
+- `providers/`: Abstractions for different AI backends.
+- `tools/`: Modular tools (always one file = one category).
+- `tiers/`: Specific configurations for different model sizes.
+- `ui/`: Everything related to the Rich UI and user interaction.
+- `utils/`: Helper functions and statistics.
+- `config/`: Settings and validation.
+- `plugins/`: Hook system for extensions.
 
-## 🔬 Testování
-Každý nový kód musí mít odpovídající test v `tests/`. Před dokončením úkolu ověř integritu pomocí `pytest`.
+## 🔬 Testing
+Every new piece of code must have a corresponding test in `tests/`. Verify integrity with `pytest` before completing a task.

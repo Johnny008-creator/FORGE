@@ -1,42 +1,42 @@
 # 🏗️ Forge Architecture (v1.0)
 
-Tento dokument popisuje modulární strukturu projektu Forge a pravidla pro jeho rozšiřování.
+This document describes the modular structure of the Forge project and the rules for its expansion.
 
-## 📁 Přehled vrstev
+## 📁 Layer Overview
 
 ### 1. Entry Point (`forge.py`)
-- Nejvyšší vrstva, orchestrátor.
-- Zpracovává CLI argumenty a slash příkazy.
-- Inicializuje UI, Providery a spouští agentic loop.
+- The highest layer, the orchestrator.
+- Processes CLI arguments and slash commands.
+- Initializes UI, Providers, and starts the agentic loop.
 
 ### 2. Core (`core/`)
-- **`agent.py`**: Exportní rozhraní pro jádro.
-- **`loop.py`**: Samotný agentic loop (Brain). Rozhoduje o dalším kroku.
-- **`context.py`**: Správa historie konverzace a trimování kontextu.
-- **`parser.py`**: Extrakce a oprava JSON volání z výstupu modelu.
+- **`agent.py`**: Export interface for the core.
+- **`loop.py`**: The agentic loop itself (The Brain). Decides the next step.
+- **`context.py`**: Conversation history management and context trimming.
+- **`parser.py`**: Extraction and repair of JSON tool calls from model output.
 
 ### 3. Providers (`providers/`)
-- Abstrakční vrstva pro AI backendy.
-- Každý provider dědí z `BaseProvider`.
-- Podporuje auto-discovery (detekci běžících služeb).
+- Abstraction layer for AI backends.
+- Each provider inherits from `BaseProvider`.
+- Supports auto-discovery (detecting running services).
 
 ### 4. Tools (`tools/`)
-- Atomické funkce, které může agent volat.
-- Každý soubor (`file.py`, `shell.py`, `search.py`, `ask.py`) představuje kategorii nástrojů.
-- Registrace probíhá v `registry.py`.
+- Atomic functions that the agent can call.
+- Each file (`file.py`, `shell.py`, `search.py`, `ask.py`) represents a category of tools.
+- Registration takes place in `registry.py`.
 
 ### 5. Tiers (`tiers/`)
-- Konfigurace modelů podle velikosti (Tiny, Small, Medium, Large).
-- Každý Tier má vlastní limity kontextu a systémový prompt.
+- Model configuration based on size (Tiny, Small, Medium, Large).
+- Each Tier has its own context limits and system prompt.
 
 ### 6. UI (`ui/`)
-- Vše spojené s Rich UI.
-- Oddělená témata (`themes.py`), výstupy (`display.py`) a vstupy (`input.py`).
+- Everything related to the Rich UI.
+- Separate themes (`themes.py`), outputs (`display.py`), and inputs (`input.py`).
 
 ### 7. Config (`config/`)
-- Správa nastavení (`settings.py`) a validace prostředí (`validator.py`).
+- Settings management (`settings.py`) and environment validation (`validator.py`).
 
-## 📊 Diagram závislostí (Import Flow)
+## 📊 Dependency Diagram (Import Flow)
 
 ```text
 forge.py ──▶ core/agent.py ──▶ core/loop.py
@@ -50,9 +50,9 @@ utils/         ui/            tools/
 counter.py     display.py     executor.py
 ```
 
-## 📜 Pravidla pro přispívání
-- **Žádné cirkulární importy:** Sledujte diagram výše.
-- **SRP:** Každá funkce dělá jednu věc.
-- **Limity:** Soubor max 200 řádků.
-- **Chirurgické úpravy:** Měňte jen to, co je nezbytné.
-- **Testy:** Každý nový nástroj nebo provider musí mít test v `tests/`.
+## 📜 Contribution Rules
+- **No circular imports:** Follow the diagram above.
+- **SRP:** Each function does one thing.
+- **Limits:** Max 200 lines per file.
+- **Surgical edits:** Change only what is necessary.
+- **Tests:** Every new tool or provider must have a test in `tests/`.
